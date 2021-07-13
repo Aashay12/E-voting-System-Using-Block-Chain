@@ -1,17 +1,14 @@
-# -*- coding: utf-8 -*-
-
-# Form implementation generated from reading ui file 'register.ui'
-#
-# Created by: PyQt5 UI code generator 5.11.3
-#
-# WARNING! All changes made in this file will be lost!
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 import cv2
 import sqlite3
 import cv2, sys, numpy, os
 import hashlib
-
+import smtplib
+import socket
+import requests
+import json
+from collections import Counter
 
 class Ui_MainWindow(object):
     def openWindow(self):
@@ -94,7 +91,7 @@ class Ui_MainWindow(object):
         # These are sub data sets of folder,
         # for my faces I've used my name you can
         # change the label here
-        sub_data = 'vivek'
+        sub_data = 'Aashay'
 
         path = os.path.join(datasets, sub_data)
         if not os.path.isdir(path):
@@ -307,8 +304,11 @@ class Ui_MainWindowLogin(object):
         self.pushButton_2.setVisible(True)
 
     def check(self):
+        global user_email
+        global aadhar_number
         aadhar_list = []
         name_list = []
+        email_list = []
         aadhar = self.lineEdit.text()
         print("I am inside check")
         conn = sqlite3.connect('db.db')
@@ -316,12 +316,58 @@ class Ui_MainWindowLogin(object):
         for row in data:
             aadhar_list.append(row[5])
             name_list.append(row[1])
+            email_list.append(row[2])
 
         if aadhar in aadhar_list:
-            self.openWindow2()
+            aadhar_number = aadhar
+            index = aadhar_list.index(aadhar)
+            user_email = email_list[index]
+            print(email_list[index])
+            self.verify()
 
         else:
             QtWidgets.QMessageBox.information(MainWindow, "Message", "No Records Found")
+
+
+    def verify(self):
+        import random
+        global RandomNumber
+        global user_email
+        print("I am inside verify aadhar")
+        self.lineEdit.setVisible(False)
+        self.pushButton_3.setVisible(False)
+        self.lineEdit_2.setVisible(True)
+        self.pushButton_4.setVisible(True)
+        self.pushButton_5.setVisible(True)
+
+        numbers = range(1000, 9999)
+        RandomNumber = random.choice(numbers)
+        print(RandomNumber)
+
+        s = smtplib.SMTP('smtp.gmail.com', 587)
+
+        # start TLS for security
+        s.starttls()
+
+        # Authentication
+        s.login("ashaymotiwala@gmail.com", "m8982169105m")
+
+        # message to be sent
+        message = "This Your OTP: " + str(RandomNumber)
+        print(message)
+        # sending the mail
+        s.sendmail("ashaymotiwala@gmail.com", str(user_email), message)
+
+        # terminating the session
+        s.quit()
+        print("Message Sent Successfully")
+
+    def otp_check(self):
+        global RandomNumber
+        otp = self.lineEdit_2.text()
+
+        if str(otp) == str(RandomNumber):
+            self.openWindow2()
 
 
     def open_camera(self):
@@ -339,7 +385,45 @@ class Ui_MainWindowLogin(object):
         capture.release()
         cv2.destroyAllWindows()
 
+    def vote_count(self):
+        vote_list = []
+        print("I am inside vote count")
+        url = 'http://aashay.pythonanywhere.com/'
+        result = requests.get(url=url)
+        print(result.json())
+        output = result.json()
+        print(output['Result'])
+        output = list(output['Result'])
+        for i in range(len(output)):
+            if output[i] == "]":
+                vote_list.append(output[i-2])
+
+        print(vote_list)
+        vote_list = list(filter(lambda a: a != '"', vote_list))
+        print(vote_list)
+        final_list = []
+        for i in vote_list:
+            final_list.append(int(i))
+        final_list.sort()
+        print(final_list)
+
+        print(Counter(final_list))
+        text_final = ""
+        for i in list(Counter(final_list).items()):
+            a = 1
+            label = "Candidate " + str(i[0]) + " " + "Vote " + str(i[1])
+            text_final = text_final + label + "\n"
+        print(text_final)
+        self.label_2.setText(str((text_final)))
+
+
+
+
+
+
+
     def setupUi(self, MainWindow):
+
         MainWindow.setObjectName("MainWindow")
         MainWindow.resize(1360, 768)
         self.centralwidget = QtWidgets.QWidget(MainWindow)
@@ -351,7 +435,6 @@ class Ui_MainWindowLogin(object):
         self.frame.setFrameShape(QtWidgets.QFrame.StyledPanel)
         self.frame.setFrameShadow(QtWidgets.QFrame.Raised)
         self.frame.setObjectName("frame")
-
 
         self.pushButton = QtWidgets.QPushButton(self.frame)
         self.pushButton.setGeometry(QtCore.QRect(140, 80, 300, 41))
@@ -377,6 +460,15 @@ class Ui_MainWindowLogin(object):
         self.lineEdit.setVisible(False)
         self.lineEdit.returnPressed.connect(self.check)
 
+        self.lineEdit_2 = QtWidgets.QLineEdit(self.frame)
+        self.lineEdit_2.setGeometry(QtCore.QRect(140, 80, 300, 41))
+        self.lineEdit_2.setObjectName("lineEdit")
+        self.lineEdit_2.setPlaceholderText('Enter OTP Sent on Email')
+        self.lineEdit_2.setStyleSheet("background-color: rgb(255, 255, 255);\n"
+                                    "color: rgb(0, 0, 0);")
+        self.lineEdit_2.setVisible(False)
+        self.lineEdit_2.returnPressed.connect(self.otp_check)
+
 
         self.pushButton_3 = QtWidgets.QPushButton(self.frame)
         self.pushButton_3.setGeometry(QtCore.QRect(140, 150, 300, 41))
@@ -386,6 +478,27 @@ class Ui_MainWindowLogin(object):
         self.pushButton_3.setText("Submit Aadhar")
         self.pushButton_3.setVisible(False)
         self.pushButton_3.clicked.connect(self.check)
+
+
+
+        self.pushButton_4 = QtWidgets.QPushButton(self.frame)
+        self.pushButton_4.setGeometry(QtCore.QRect(140, 150, 300, 41))
+        self.pushButton_4.setObjectName("pushButton")
+        self.pushButton_4.setStyleSheet("background-color: rgb(17, 168, 198);\n"
+                                        "color: rgb(255, 255, 255);")
+        self.pushButton_4.setText("Submit OTP")
+        self.pushButton_4.setVisible(False)
+        self.pushButton_4.clicked.connect(self.otp_check)
+
+
+        self.pushButton_5 = QtWidgets.QPushButton(self.frame)
+        self.pushButton_5.setGeometry(QtCore.QRect(140, 220, 300, 41))
+        self.pushButton_5.setObjectName("pushButton")
+        self.pushButton_5.setStyleSheet("background-color: rgb(17, 168, 198);\n"
+                                        "color: rgb(255, 255, 255);")
+        self.pushButton_5.setText("Resend OTP")
+        self.pushButton_5.setVisible(False)
+        self.pushButton_5.clicked.connect(self.verify)
 
 
         self.label = QtWidgets.QLabel(self.centralwidget)
@@ -401,6 +514,20 @@ class Ui_MainWindowLogin(object):
         self.label.setAlignment(QtCore.Qt.AlignCenter)
         self.label.setObjectName("label")
 
+        self.label_2 = QtWidgets.QLabel(self.centralwidget)
+        self.label_2.setGeometry(QtCore.QRect(0, 450, 1360, 300))
+        font = QtGui.QFont()
+        font.setFamily("Monaco")
+        font.setPointSize(20)
+        font.setBold(True)
+        font.setWeight(75)
+        self.label_2.setFont(font)
+        self.label_2.setStyleSheet("background-color: rgb(17, 168, 198);\n"
+                                 "color: rgb(255, 255, 255);")
+        self.label_2.setAlignment(QtCore.Qt.AlignCenter)
+        self.label_2.setObjectName("label_2")
+
+
 
         MainWindow.setCentralWidget(self.centralwidget)
         self.menubar = QtWidgets.QMenuBar(MainWindow)
@@ -413,6 +540,7 @@ class Ui_MainWindowLogin(object):
 
         self.retranslateUi(MainWindow)
         QtCore.QMetaObject.connectSlotsByName(MainWindow)
+        self.vote_count()
 
     def retranslateUi(self, MainWindow):
         _translate = QtCore.QCoreApplication.translate
@@ -451,25 +579,51 @@ class Ui_MainWindowVote(object):
 
 
     def vote(self):
+        global aadhar_number
+        aadhar_list = []
         conn = sqlite3.connect("db.db")
-        cursor = conn.execute("SELECT ID, HASHBLOCK FROM VOTETABLE")
+        cursor = conn.execute("SELECT ID, HASHBLOCK, AADHAR FROM VOTETABLE")
         conn.commit()
         for row in cursor:
             id = row[0]
             previous_block = row[1]
+            aadhar_list.append(row[2])
 
         # Creating new block and hashing it
         hash_block = str(previous_block) + str(id + 1)
         hash_object = hashlib.md5(hash_block.encode()).hexdigest()
 
-        conn = sqlite3.connect("db.db")
+        print("This is aadhar list")
+        print(aadhar_list)
+        print(aadhar_number)
+        if aadhar_number not in aadhar_list:
+            conn = sqlite3.connect("db.db")
 
-        # Storing new block
-        conn.execute("INSERT INTO VOTETABLE (HASHBLOCK,PREVIOUSBLOCK,VOTE,AADHAR) VALUES (?,?,?,?)",
-            (str(hash_object), str(previous_block), self.comboBox.currentIndex(), "123456789"))
-        conn.commit()
-        self.openWindow()
-        QtWidgets.QMessageBox.information(MainWindow, "Message", "Vote Casted")
+            # Storing new block
+            conn.execute("INSERT INTO VOTETABLE (HASHBLOCK,PREVIOUSBLOCK,VOTE,AADHAR) VALUES (?,?,?,?)",
+                         (str(hash_object), str(previous_block), self.comboBox.currentIndex(), str(aadhar_number)))
+            conn.commit()
+            hostname = socket.gethostname()
+            IPAddr = socket.gethostbyname(hostname)
+            print("Your Computer Name is:" + hostname)
+            print("Your Computer IP Address is:" + IPAddr)
+
+            url = 'http://aashay.pythonanywhere.com/'
+            data = {
+                'IP': str(IPAddr),
+                'Aadhar': str(aadhar_number),
+                'Vote': str(self.comboBox.currentIndex())
+            }
+            headers = {'Content-type': 'application/json', 'Accept': 'text/plain'}
+
+            result = requests.post(url=url, data=json.dumps(data), headers=headers)
+            print(result)
+            self.openWindow()
+            QtWidgets.QMessageBox.information(MainWindow, "Message", "Vote Casted")
+
+        else:
+            self.openWindow()
+            QtWidgets.QMessageBox.information(MainWindow, "Message", "Vote Already Casted")
 
 
 
